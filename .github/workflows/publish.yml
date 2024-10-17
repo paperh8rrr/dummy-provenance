@@ -1,0 +1,34 @@
+---
+name: publish-with-provenance unscoped
+"on":
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v3
+      - name: Setup node
+        uses: actions/setup-node@2fddd8803e2f5c9604345a0b591c3020ee971a93 # v3
+        with:
+          node-version: 20
+      - name: Bump package versions
+        run: |
+          sed -i "s/1.0.0/1.0.0-${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}/" "package.json"
+      - name: Pack
+        run: |
+          npm pack --json
+      - uses: actions/upload-artifact@v3
+        with:
+          name: package.tgz
+          path: ./*.tgz
+      - name: Publish
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          TARBALL=$(readlink -f  *.tgz)
+          npm exec npm@bdehamer/cli#dump -- publish ${TARBALL} --access public --provenance
